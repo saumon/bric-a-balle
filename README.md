@@ -2,8 +2,6 @@
 
 A modern, neon-styled infinite brick breaker game built with Vanilla JavaScript and HTML5 Canvas.
 
-![Bric-à-Balle Banner](https://via.placeholder.com/800x400?text=Bric-%C3%A0-Balle+Preview)
-
 ## 🎮 Play Now
 
 Simply open `index.html` in your web browser to play locally, or host it on any static site provider like GitHub Pages.

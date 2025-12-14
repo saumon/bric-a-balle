@@ -305,9 +305,18 @@ class LevelGenerator {
 
     generate(level) {
         const bricks = [];
-        const cols = Math.floor(this.game.width / (this.brickWidth + this.padding));
+        // Limit columns to avoid hitting side paddles too easily (leave margin)
+        // 150px margin on each side for paddles approx
+        const availableWidth = this.game.width - 300;
+        const cols = Math.floor(availableWidth / (this.brickWidth + this.padding));
         const startX = (this.game.width - (cols * (this.brickWidth + this.padding))) / 2;
+
         const rows = Math.min(3 + Math.floor(level / 2), 12);
+
+        // Calculate vertical center
+        const totalHeight = rows * (this.brickHeight + this.padding);
+        const startY = (this.game.height - totalHeight) / 2;
+
         const patternType = level % 4;
         const hue = (level * 40) % 360;
 
@@ -325,7 +334,7 @@ class LevelGenerator {
 
                 if (createBrick) {
                     const x = startX + c * (this.brickWidth + this.padding);
-                    const y = this.marginTop + r * (this.brickHeight + this.padding);
+                    const y = startY + r * (this.brickHeight + this.padding);
                     bricks.push(new Brick(x, y, color));
                 }
             }

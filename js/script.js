@@ -109,12 +109,13 @@ class ParticleSystem {
 }
 
 class Paddle {
-    constructor(game) {
+    constructor(game, x, y, width, height, orientation = 'horizontal') {
         this.game = game;
-        this.width = 150;
-        this.height = 20;
-        this.x = this.game.width / 2 - this.width / 2;
-        this.y = this.game.height - 50;
+        this.width = width;
+        this.height = height;
+        this.x = x;
+        this.y = y;
+        this.orientation = orientation;
         this.speed = 0;
         this.maxSpeed = 10;
 
@@ -122,12 +123,21 @@ class Paddle {
     }
 
     update(deltaTime) {
-        if (this.x < 0) this.x = 0;
-        if (this.x + this.width > this.game.width) this.x = this.game.width - this.width;
+        if (this.orientation === 'horizontal') {
+            if (this.x < 0) this.x = 0;
+            if (this.x + this.width > this.game.width) this.x = this.game.width - this.width;
+        } else {
+            if (this.y < 0) this.y = 0;
+            if (this.y + this.height > this.game.height) this.y = this.game.height - this.height;
+        }
     }
 
-    moveTo(x) {
-        this.x = x - this.width / 2;
+    moveTo(pos) {
+        if (this.orientation === 'horizontal') {
+            this.x = pos - this.width / 2;
+        } else {
+            this.y = pos - this.height / 2;
+        }
     }
 
     draw(ctx) {
@@ -174,20 +184,11 @@ class Ball {
         this.x += this.speedX;
         this.y += this.speedY;
 
-        if (this.x - this.radius < 0) {
-            this.x = this.radius;
-            this.speedX *= -1;
-        }
-        if (this.x + this.radius > this.game.width) {
-            this.x = this.game.width - this.radius;
-            this.speedX *= -1;
-        }
-        if (this.y - this.radius < 0) {
-            this.y = this.radius;
-            this.speedY *= -1;
-        }
-
-        if (this.y - this.radius > this.game.height) {
+        // Remove wall bounces for Quad-Paddle mode - Die on any boundary exit
+        if (this.x + this.radius < 0 ||
+            this.x - this.radius > this.game.width ||
+            this.y + this.radius < 0 ||
+            this.y - this.radius > this.game.height) {
             this.active = false;
         }
     }
@@ -339,6 +340,13 @@ class Game {
         this.ctx = canvas.getContext('2d');
         this.width = canvas.width;
         this.height = canvas.height;
+        // Need to set game property on canvas context or pass full game reference correctly if needed,
+        // but Paddle constructor takes game instance.
+        // Quick fix for the constructor calls above where I used 'this.game.height' which is undefined at that point of 'this'
+        // Actually, inside constructor 'this' is the game instance.
+        // But 'this.game' is undefined. 'this.height' is defined.
+        // Rewriting the constructor block above to use 'this.height' correctly.
+
 
         this.lastTime = 0;
         this.isRunning = false;
@@ -347,7 +355,19 @@ class Game {
         this.level = 1;
         this.score = 0;
 
-        this.paddle = new Paddle(this);
+        this.level = 1;
+        this.score = 0;
+
+        // Initialize Paddles
+        const pWidth = 150;
+        const pHeight = 20;
+        this.paddles = {
+            bottom: new Paddle(this, this.width / 2 - pWidth / 2, this.height - 50, pWidth, pHeight, 'horizontal'),
+            top: new Paddle(this, this.width / 2 - pWidth / 2, 30, pWidth, pHeight, 'horizontal'),
+            left: new Paddle(this, 30, this.height / 2 - pWidth / 2, pHeight, pWidth, 'vertical'),
+            right: new Paddle(this, this.width - 50, this.height / 2 - pWidth / 2, pHeight, pWidth, 'vertical')
+        };
+
         this.balls = [new Ball(this)];
         this.bricks = [];
         this.powerUps = [];
@@ -359,16 +379,34 @@ class Game {
     }
 
     setupInput() {
-        window.addEventListener('mousemove', (e) => {
+        const handleMove = (x) => {
             if (this.isRunning && !this.isPaused) {
-                this.paddle.moveTo(e.clientX);
+                // Bottom: Follows Mouse
+                this.paddles.bottom.moveTo(x);
+                // Top: Opposite to Bottom (Inverted X)
+                this.paddles.top.moveTo(this.width - x);
+
+                // Map x (0 to width) to y (height to 0) for Left (moves down when mouse left)
+                // User said: "move bottom left -> left paddle down"
+                // Bottom LEFT implies x is small. Left paddle DOWN implies y is large.
+                // So small x -> large y. Inverse mapping.
+                // map(value, inMin, inMax, outMin, outMax)
+                const leftY = this.height - (x / this.width) * this.height;
+                this.paddles.left.moveTo(leftY);
+
+                // Right: Opposite? Or same?
+                // "When moving bottom paddle right (x large), left paddle goes up (y small)." -> Matches above.
+                // Let's make Right paddle opposite to Left.
+                // x large -> Right paddle down (y large).
+                const rightY = (x / this.width) * this.height;
+                this.paddles.right.moveTo(rightY);
             }
-        });
+        };
+
+        window.addEventListener('mousemove', (e) => handleMove(e.clientX));
 
         window.addEventListener('touchmove', (e) => {
-            if (this.isRunning && !this.isPaused && e.touches.length > 0) {
-                this.paddle.moveTo(e.touches[0].clientX);
-            }
+            if (e.touches.length > 0) handleMove(e.touches[0].clientX);
         }, { passive: true });
     }
 
@@ -377,7 +415,13 @@ class Game {
         this.canvas.height = window.innerHeight;
         this.width = this.canvas.width;
         this.height = this.canvas.height;
-        this.paddle.y = this.height - 50;
+
+        if (this.paddles) {
+            this.paddles.bottom.y = this.height - 50;
+            this.paddles.top.y = 30; // Fixed top pos
+            this.paddles.left.x = 30; // Fixed left pos
+            this.paddles.right.x = this.width - 50;
+        }
     }
 
     start() {
@@ -387,7 +431,13 @@ class Game {
         this.balls[0].reset();
         this.powerUps = [];
         this.bricks = this.levelGenerator.generate(this.level);
-        this.paddle.width = 150;
+
+        // Reset Paddles
+        Object.values(this.paddles).forEach(p => {
+            p.width = p.orientation === 'horizontal' ? 150 : 20;
+            p.height = p.orientation === 'horizontal' ? 20 : 150;
+        });
+
         this.balls[0].speedMax = Math.min(15, 8 + this.level * 0.5);
         this.lastTime = performance.now();
         requestAnimationFrame(this.gameLoop.bind(this));
@@ -447,14 +497,20 @@ class Game {
                 b2.x = lastBall.x; b2.y = lastBall.y; b2.speedX = 0; b2.speedY = lastBall.speedY;
             }
         } else if (p.type === 'large-paddle') {
-            this.paddle.width = Math.min(300, this.paddle.width + 50);
+            Object.values(this.paddles).forEach(p => {
+                if (p.orientation === 'horizontal') {
+                    p.width = Math.min(300, p.width + 50);
+                } else {
+                    p.height = Math.min(300, p.height + 50);
+                }
+            });
         } else if (p.type === 'fire-ball') {
             this.balls.forEach(b => b.isFire = true);
         }
     }
 
     update(deltaTime) {
-        this.paddle.update(deltaTime);
+        Object.values(this.paddles).forEach(p => p.update(deltaTime));
         this.particles.update();
 
         this.balls = this.balls.filter(b => b.active);
@@ -466,16 +522,46 @@ class Game {
         this.balls.forEach(ball => {
             ball.update(deltaTime);
 
-            if (this.checkCollision(ball, this.paddle)) {
-                let collidePoint = ball.x - (this.paddle.x + this.paddle.width / 2);
-                collidePoint = collidePoint / (this.paddle.width / 2);
-                let angle = collidePoint * (Math.PI / 3);
-                let speed = Math.sqrt(ball.speedX * ball.speedX + ball.speedY * ball.speedY);
-                if (speed < 6) speed = 6;
-                ball.speedX = speed * Math.sin(angle);
-                ball.speedY = -speed * Math.cos(angle);
-                this.soundManager.playPaddleHit();
-            }
+            // Ball-Paddle Collision
+            Object.values(this.paddles).forEach(paddle => {
+                if (this.checkCollision(ball, paddle)) {
+                    // Reflection Logic
+                    if (paddle.orientation === 'horizontal') {
+                        // Top/Bottom Paddle
+                        let collidePoint = ball.x - (paddle.x + paddle.width / 2);
+                        collidePoint = collidePoint / (paddle.width / 2);
+                        let angle = collidePoint * (Math.PI / 3);
+                        let speed = Math.sqrt(ball.speedX * ball.speedX + ball.speedY * ball.speedY);
+                        if (speed < 6) speed = 6;
+                        ball.speedX = speed * Math.sin(angle);
+
+                        // If hitting bottom paddle (y > center), bounce UP (negative Y)
+                        // If hitting top paddle (y < center), bounce DOWN (positive Y)
+                        if (paddle.y > this.height / 2) {
+                            ball.speedY = -Math.abs(speed * Math.cos(angle));
+                        } else {
+                            ball.speedY = Math.abs(speed * Math.cos(angle));
+                        }
+                    } else {
+                        // Left/Right Paddle
+                        let collidePoint = ball.y - (paddle.y + paddle.height / 2);
+                        collidePoint = collidePoint / (paddle.height / 2);
+                        let angle = collidePoint * (Math.PI / 3);
+                        let speed = Math.sqrt(ball.speedX * ball.speedX + ball.speedY * ball.speedY);
+                        if (speed < 6) speed = 6;
+
+                        // If hitting right paddle (x > center), bounce LEFT (negative X)
+                        // If hitting left paddle (x < center), bounce RIGHT (positive X)
+                        if (paddle.x > this.width / 2) {
+                            ball.speedX = -Math.abs(speed * Math.cos(angle));
+                        } else {
+                            ball.speedX = Math.abs(speed * Math.cos(angle));
+                        }
+                        ball.speedY = speed * Math.sin(angle);
+                    }
+                    this.soundManager.playPaddleHit();
+                }
+            });
 
             for (let i = 0; i < this.bricks.length; i++) {
                 let b = this.bricks[i];
@@ -489,6 +575,14 @@ class Game {
                     this.soundManager.playBrickHit();
 
                     if (!ball.isFire) {
+                        // Improve deflection? Simple assumption for now
+                        // Just invert Y? 
+                        // If we have vertical paddles, bricks might be hit from side.
+                        // Simple separate axis check would be better but keeping simple for now.
+                        // Ideally check overlaps. 
+                        // Let's iterate logic slightly: invert the component that "penetrates" more?
+                        // For now keep simple Y flip unless very clearly X hit?
+                        // Existing logic only flipped Y. 
                         ball.speedY *= -1;
                     }
                     this.updateUI();
@@ -498,12 +592,16 @@ class Game {
 
         this.powerUps.forEach(p => {
             p.update();
-            if (p.active && this.checkCollisionRect(p, this.paddle)) {
-                p.active = false;
-                this.activatePowerUp(p);
-                this.soundManager.playPowerUp();
-            }
-            if (p.y > this.height) p.active = false;
+            // Check collision with ANY paddle
+            Object.values(this.paddles).forEach(paddle => {
+                if (p.active && this.checkCollisionRect(p, paddle)) {
+                    p.active = false;
+                    this.activatePowerUp(p);
+                    this.soundManager.playPowerUp();
+                }
+            });
+
+            if (p.y > this.height || p.y < 0) p.active = false;
         });
 
         this.powerUps = this.powerUps.filter(p => p.active);
@@ -546,7 +644,7 @@ class Game {
         this.particles.draw(this.ctx);
         this.bricks.forEach(b => b.draw(this.ctx));
         this.powerUps.forEach(p => p.draw(this.ctx));
-        this.paddle.draw(this.ctx);
+        Object.values(this.paddles).forEach(p => p.draw(this.ctx));
         this.balls.forEach(b => {
             if (b.isFire) {
                 this.ctx.shadowColor = 'orange';

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bric-à-Balle - Infinite Brick Breaker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="game-ui">
+        <div id="score-board">
+            <div class="stat-container">
+                <span class="label">SCORE</span>
+                <span id="score-display">0</span>
+            </div>
+            <div class="stat-container">
+                <span class="label">LEVEL</span>
+                <span id="level-display">1</span>
+            </div>
+        </div>
+
+        <canvas id="game-canvas"></canvas>
+
+        <div id="start-screen" class="overlay active">
+            <h1 class="glow-text">BRIC-À-BALLE</h1>
+            <p>Brisez les briques à l'infini</p>
+            <button id="start-btn" class="neon-btn">JOUER</button>
+        </div>
+
+        <div id="game-over-screen" class="overlay">
+            <h1 class="glow-text red">PERDU</h1>
+            <p>Score Final: <span id="final-score">0</span></p>
+            <button id="restart-btn" class="neon-btn">REJOUER</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/script.js"></script>
+</body>
+
+</html>

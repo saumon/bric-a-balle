@@ -8,6 +8,55 @@
 
 // --- CLASSES ---
 
+class SoundManager {
+    constructor() {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.value = 0.3;
+        this.masterGain.connect(this.ctx.destination);
+    }
+
+    resume() {
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+    }
+
+    playTone(frequency, type, duration, startTime = 0) {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = type;
+        osc.frequency.setValueAtTime(frequency, this.ctx.currentTime + startTime);
+
+        gain.gain.setValueAtTime(1, this.ctx.currentTime + startTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + startTime + duration);
+
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+
+        osc.start(this.ctx.currentTime + startTime);
+        osc.stop(this.ctx.currentTime + startTime + duration);
+    }
+
+    playBrickHit() {
+        this.resume();
+        this.playTone(800 + Math.random() * 200, 'sine', 0.1);
+    }
+
+    playPaddleHit() {
+        this.resume();
+        this.playTone(300, 'square', 0.1);
+    }
+
+    playPowerUp() {
+        this.resume();
+        this.playTone(440, 'sine', 0.1, 0);
+        this.playTone(554.37, 'sine', 0.1, 0.05);
+        this.playTone(659.25, 'sine', 0.2, 0.1);
+    }
+}
+
 class Particle {
     constructor(x, y, color) {
         this.x = x;
@@ -304,6 +353,7 @@ class Game {
         this.powerUps = [];
         this.particles = new ParticleSystem();
         this.levelGenerator = new LevelGenerator(this);
+        this.soundManager = new SoundManager();
 
         this.setupInput();
     }
@@ -424,6 +474,7 @@ class Game {
                 if (speed < 6) speed = 6;
                 ball.speedX = speed * Math.sin(angle);
                 ball.speedY = -speed * Math.cos(angle);
+                this.soundManager.playPaddleHit();
             }
 
             for (let i = 0; i < this.bricks.length; i++) {
@@ -435,6 +486,7 @@ class Game {
                     this.score += 10;
                     this.spawnPowerUp(b.x + b.width / 2, b.y + b.height / 2);
                     this.particles.emit(b.x + b.width / 2, b.y + b.height / 2, b.color, 15);
+                    this.soundManager.playBrickHit();
 
                     if (!ball.isFire) {
                         ball.speedY *= -1;
@@ -449,6 +501,7 @@ class Game {
             if (p.active && this.checkCollisionRect(p, this.paddle)) {
                 p.active = false;
                 this.activatePowerUp(p);
+                this.soundManager.playPowerUp();
             }
             if (p.y > this.height) p.active = false;
         });

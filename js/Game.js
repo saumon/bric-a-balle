@@ -3,6 +3,7 @@ import { Ball } from './Ball.js';
 import { LevelGenerator } from './LevelGenerator.js';
 import { PowerUp } from './PowerUp.js';
 import { ParticleSystem } from './Particle.js';
+import { SoundManager } from './SoundManager.js';
 
 export class Game {
     constructor(canvas) {
@@ -23,8 +24,10 @@ export class Game {
         this.balls = [new Ball(this)];
         this.bricks = [];
         this.powerUps = [];
+        this.powerUps = [];
         this.particles = new ParticleSystem();
         this.levelGenerator = new LevelGenerator(this);
+        this.soundManager = new SoundManager();
 
         this.setupInput();
     }
@@ -152,6 +155,7 @@ export class Game {
                 if (speed < 6) speed = 6;
                 ball.speedX = speed * Math.sin(angle);
                 ball.speedY = -speed * Math.cos(angle);
+                this.soundManager.playPaddleHit();
             }
 
             // Ball-Brick Collision
@@ -164,6 +168,7 @@ export class Game {
                     this.score += 10;
                     this.spawnPowerUp(b.x + b.width / 2, b.y + b.height / 2);
                     this.particles.emit(b.x + b.width / 2, b.y + b.height / 2, b.color, 15);
+                    this.soundManager.playBrickHit();
 
                     if (!ball.isFire) {
                         ball.speedY *= -1;
@@ -180,6 +185,7 @@ export class Game {
             if (p.active && this.checkCollisionRect(p, this.paddle)) {
                 p.active = false;
                 this.activatePowerUp(p);
+                this.soundManager.playPowerUp();
             }
             // Remove if out of screen
             if (p.y > this.height) p.active = false;
